@@ -40,5 +40,8 @@ public:
 public:
     void send(const IRCommand& cmd) override;
     void send(const LEDProtocol& cmd);
-    void send_multiple(const LEDProtocol& cmd, const uint16_t amount);
+    void send_multiple(const LEDProtocol& cmd, const uint16_t amount, const uint16_t delay_ms=IDEAL_SIGNAL_SPACE_MS);
+
+private:
+    static constexpr uint16_t IDEAL_SIGNAL_SPACE_MS = 50;
 };
