@@ -120,6 +120,7 @@ IRCommand IRReceiverIter::receive()
     return cmd;
 }
 
+
 bool IRReceiverIter::receive_callback(rmt_channel_handle_t channel, const rmt_rx_done_event_data_t* edata, void* user_data)
 {   
     IRReceiverIter* iter = static_cast<IRReceiverIter*>(user_data);
@@ -170,7 +171,6 @@ bool IRReceiverIter::receive_callback(rmt_channel_handle_t channel, const rmt_rx
 
     if (!iter->_only_accpet_valid_ir)
     {
-        ESP_DRAM_LOGI("I", "NIER");
         xQueueGenericSend(iter->_queue, &EMPTY, portMAX_DELAY, queueOVERWRITE);
     }
 
