@@ -40,5 +40,5 @@ public:
 public:
     void send(const IRCommand& cmd) override;
     void send(const LEDProtocol& cmd);
-
+    void send_multiple(const LEDProtocol& cmd, const uint16_t amount);
 };

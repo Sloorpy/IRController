@@ -14,10 +14,11 @@
 
 static constexpr size_t RX_BUFFER_SIZE = 128;
 
-IRReceiverIter::IRReceiverIter(std::weak_ptr<RMTChannel> base)
+IRReceiverIter::IRReceiverIter(std::weak_ptr<RMTChannel> base, const bool only_accpet_valid_ir)
     : _base(base),
     _symbols_buffer(RX_BUFFER_SIZE),
-    _queue(xQueueCreate(1, sizeof(IRCommand*)))
+    _queue(xQueueCreate(1, sizeof(IRCommand*))),
+    _only_accpet_valid_ir(only_accpet_valid_ir)
 {
     if (_queue == nullptr)
     {
@@ -58,9 +59,9 @@ IRReceiverIter::~IRReceiverIter()
     }
 }
 
-std::unique_ptr<IRReceiverIter> IRReceiverIter::create(std::weak_ptr<RMTChannel> base)
+std::unique_ptr<IRReceiverIter> IRReceiverIter::create(std::weak_ptr<RMTChannel> base, const bool only_accpet_valid_ir)
 {
-    std::unique_ptr<IRReceiverIter> iter(new IRReceiverIter(base));
+    std::unique_ptr<IRReceiverIter> iter(new IRReceiverIter(base, only_accpet_valid_ir));
     iter->initialize_callback();
     return iter;
 }
@@ -143,7 +144,7 @@ bool IRReceiverIter::receive_callback(rmt_channel_handle_t channel, const rmt_rx
             }
         }
 
-        //ESP_DRAM_LOGI("IR", "%s\n", NECProtocol::timings_str(timings).c_str());
+        ESP_DRAM_LOGI("IR", "%s\n", NECProtocol::timings_str(timings).c_str());
         const IRCommand cmd = NECProtocol::decode(timings);
 
         xQueueGenericSend(iter->_queue, &cmd, portMAX_DELAY, queueOVERWRITE);
@@ -165,6 +166,14 @@ bool IRReceiverIter::receive_callback(rmt_channel_handle_t channel, const rmt_rx
         ESP_DRAM_LOGI("IR", "ERROR: crashed with unknown error");
     }
     
+    static constexpr IRCommand EMPTY {.state = SignalState::INVALID};
+
+    if (!iter->_only_accpet_valid_ir)
+    {
+        ESP_DRAM_LOGI("I", "NIER");
+        xQueueGenericSend(iter->_queue, &EMPTY, portMAX_DELAY, queueOVERWRITE);
+    }
+
     iter->initiate_receive();
 
     return false;

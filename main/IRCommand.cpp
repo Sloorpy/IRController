@@ -9,9 +9,14 @@
 
 std::string IRCommand::str() const
 {
-    if (this->is_repeat)
+    if (this->state == SignalState::REPEAT)
     {
         return std::string("Repeat code");
+    }
+    
+    if (this->state == SignalState::INVALID)
+    {
+        return std::string("Invalid signal");
     }
 
     char buffer[30];
@@ -118,7 +123,7 @@ IRCommand NECProtocol::decode(const std::vector<uint16_t>& timings)
 {   
     if (is_repeat(timings))
     {
-        return IRCommand{.is_repeat = true};
+        return IRCommand{.state = SignalState::REPEAT};
     }
 
     static constexpr uint32_t NEC_PULSE_SIZE = 67;
@@ -176,7 +181,7 @@ IRCommand NECProtocol::decode(const std::vector<uint16_t>& timings)
     }
 
     return IRCommand{
-        .is_repeat = false,
+        .state = SignalState::NORMAL,
         .address = address_bits,
         .command = command_bits,
     };

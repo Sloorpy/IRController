@@ -8,9 +8,9 @@
 
 static constexpr uint32_t RECEIVER_CARRIER_FREQ_HZ = 25000;
 
-IRReceiver::IRReceiver(gpio_num_t gpio_num) : 
+IRReceiver::IRReceiver(gpio_num_t gpio_num, const bool only_accpet_valid_ir) : 
     _channel(create_channel(gpio_num)),
-    _iter(IRReceiverIter::create(_channel))
+    _iter(IRReceiverIter::create(_channel, only_accpet_valid_ir))
 {
     _channel->enable();
     _iter->initiate_receive();

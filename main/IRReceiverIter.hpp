@@ -18,7 +18,7 @@ class IRReceiverIter
 friend class IRReceiver;
 
 private:
-    explicit IRReceiverIter(std::weak_ptr<RMTChannel> base);
+    explicit IRReceiverIter(std::weak_ptr<RMTChannel> base, const bool only_accpet_valid_ir);
 
 public:
     ~IRReceiverIter();
@@ -31,7 +31,7 @@ public:
     IRCommand receive();
 
 private:    
-    static std::unique_ptr<IRReceiverIter> create(std::weak_ptr<RMTChannel> base);
+    static std::unique_ptr<IRReceiverIter> create(std::weak_ptr<RMTChannel> base, const bool only_accpet_valid_ir);
 
 private:
     void initialize_callback();
@@ -44,4 +44,5 @@ private:
     std::weak_ptr<RMTChannel> _base;
     std::vector<rmt_symbol_word_t> _symbols_buffer;
     QueueHandle_t _queue;
+    const bool _only_accpet_valid_ir;
 };

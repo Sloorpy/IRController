@@ -14,28 +14,33 @@
 
 #include <sys/time.h>
 
-static constexpr gpio_num_t IR_TRANSFER_PIN = GPIO_NUM_22;
-static constexpr gpio_num_t IR_RECV_PIN = GPIO_NUM_23;
+static constexpr gpio_num_t IR_TRANSFER_PIN = GPIO_NUM_33;
+static constexpr gpio_num_t IR_RECV_PIN = GPIO_NUM_32;
 
 extern "C" void app_main(void)
 {
     try 
     {
         LEDTransmitter ir_transmitter(IR_TRANSFER_PIN);
-        //IRReceiver ir_receiver(IR_RECV_PIN);
-
+        
+        static constexpr bool ACCEPT_INVALID_SIGNAL = false;
+        IRReceiver ir_receiver(IR_RECV_PIN, ACCEPT_INVALID_SIGNAL);
+        IRReceiverIter& iter = ir_receiver.get_receiver();
         
         printf("IR Transmitter and Receiver initialized successfully\n");
         
-        //IRReceiverIter& iter = ir_receiver.get_receiver();
+        ir_transmitter.send_multiple(LEDProtocol::POWER_ON, 1);
+
 
         static constexpr uint64_t LED_BREAK_TIME_US = 500; // 0.0005 sec
         while (true)
-        {
-            ir_transmitter.send(LEDProtocol::RED_LIGHT);
+        { 
+            ir_transmitter.send_multiple(LEDProtocol::RED_LIGHT, 1);
+            printf("%s\n", iter.receive().str().c_str());
             usleep(LED_BREAK_TIME_US);
 
-            ir_transmitter.send(LEDProtocol::BLUE_LIGHT);
+            ir_transmitter.send_multiple(LEDProtocol::BLUE_LIGHT, 1);
+            printf("%s\n", iter.receive().str().c_str());
             usleep(LED_BREAK_TIME_US);
         }
     

@@ -4,9 +4,16 @@
 #include <string>
 #include <vector>
 
+enum class SignalState : uint8_t
+{
+    NORMAL = 0,
+    REPEAT = 1,
+    INVALID = 2
+};
+
 struct IRCommand
 {
-    bool is_repeat;
+    SignalState state;
     uint8_t address;
     uint8_t command;
 

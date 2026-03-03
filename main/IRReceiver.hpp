@@ -10,7 +10,7 @@
 class IRReceiver
 {
 public:
-    explicit IRReceiver(gpio_num_t gpio_num);
+    explicit IRReceiver(gpio_num_t gpio_num, const bool only_accpet_valid_ir=true);
     ~IRReceiver() = default;
 
 public:
