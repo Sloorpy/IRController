@@ -4,18 +4,20 @@
 #include <vector>
 
 #include "RMTChannel.hpp"
+#include "driver/rmt_encoder.h"
 #include "esp_log.h"
 #include "Exception.hpp"
 #include "IRCommand.hpp"
 #include "driver/rmt_rx.h"
 #include "driver/rmt_types.h"
+#include "IRCommand.hpp"
 
 static constexpr size_t DEFUALT_TX_QUEUE_DEPTH = 4;
 static constexpr uint32_t RESOLUTION_HZ = 1000 * 1000;
 static constexpr size_t MEM_BLOCK_SIZE = 64;
 static constexpr float CARRIER_DUTY_CYCLE = 0.33f;
 static constexpr bool CARRIER_POLARITY_ACTIVE_LOW = false;
-static constexpr uint32_t TRANSMITTER_CARRIER_FREQ_HZ = 38000;
+static constexpr uint32_t TRANSMITTER_CARRIER_FREQ_HZ = 38222;
 
 IRTransmitter::IRTransmitter(gpio_num_t gpio_num) : 
     _channel(create_channel(gpio_num))
@@ -46,7 +48,7 @@ std::shared_ptr<RMTChannel> IRTransmitter::create_channel(gpio_num_t gpio_num)
     esp_err_t ret = rmt_new_tx_channel(&tx_chan_config, &handle);
     if (ret != ESP_OK) 
     {
-        throw Exception(ErrorCode::TX_CHANNEL_CREATE_FAILED);
+        throw IRException(IRErrorCode::TX_CHANNEL_CREATE_FAILED);
     }
 
     return std::make_shared<RMTChannel>(handle, TRANSMITTER_CARRIER_FREQ_HZ);
@@ -60,19 +62,18 @@ void IRTransmitter::send(const IRCommand& cmd)
 
 void IRTransmitter::send_raw(const std::vector<uint16_t>& timings)
 {
-    rmt_channel_handle_t channel = _channel->get_channel();
-
     std::vector<rmt_symbol_word_t> symbols;
-    symbols.reserve(timings.size());
+    symbols.reserve(timings.size() / 2);
 
-    for (size_t i = 0; i < timings.size(); i++)
+    static constexpr uint8_t SPACE_BIT = 0;
+    static constexpr uint8_t BURST_BIT = 1;
+    for (size_t i = 0; i < timings.size(); i+=2)
     {
-        bool is_burst = (i % 2 == 0);
         rmt_symbol_word_t symbol = {
-            .duration0 = static_cast<uint16_t>(timings[i]),
-            .level0 = static_cast<uint16_t>(is_burst ? 1 : 0),
-            .duration1 = 0,
-            .level1 = 0,
+            .duration0 = timings[i],
+            .level0 = BURST_BIT,
+            .duration1 = timings[i + 1],
+            .level1 = SPACE_BIT,
         };
         symbols.push_back(symbol);
     }
@@ -81,11 +82,19 @@ void IRTransmitter::send_raw(const std::vector<uint16_t>& timings)
         .loop_count = 0,
     };
 
-    esp_err_t ret = rmt_transmit(channel, nullptr, symbols.data(), symbols.size(), &tx_config);
+    rmt_encoder_handle_t encoder = nullptr;
+    rmt_copy_encoder_config_t encoder_config = {};
+    esp_err_t ret = rmt_new_copy_encoder(&encoder_config, &encoder);
     if (ret != ESP_OK)
     {
-        return;
+        throw EspException(ret);
     }
 
-    rmt_tx_wait_all_done(channel, -1);
+    ret = rmt_transmit(_channel->get_channel(), encoder, symbols.data(), symbols.size() * sizeof(rmt_symbol_word_t), &tx_config);
+    if (ret != ESP_OK)
+    {
+        throw EspException(ret);
+    }
+
+    rmt_tx_wait_all_done(_channel->get_channel(), -1);
 }

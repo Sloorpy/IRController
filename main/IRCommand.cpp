@@ -24,7 +24,7 @@ std::string NECProtocol::timings_str(const std::vector<uint16_t>& raw_timings)
     char buffer[16];
     std::string result = "Raw timings (" + std::to_string(raw_timings.size()) + "): ";
     for (size_t i = 0; i < raw_timings.size(); i++) {
-        snprintf(buffer, sizeof(buffer), "%u ", raw_timings[i]);
+        snprintf(buffer, sizeof(buffer), "%u, ", raw_timings[i]);
         result += buffer;
     }
 
@@ -35,7 +35,7 @@ std::string NECProtocol::timings_str(const std::vector<uint16_t>& raw_timings)
 std::vector<uint16_t> NECProtocol::encode(uint8_t address, uint8_t command)
 {
     std::vector<uint16_t> timings;
-    timings.reserve(68);
+    timings.reserve(67);
 
     timings.push_back(NEC_LEADER_BURST_US);
     timings.push_back(NEC_LEADER_SPACE_US);
@@ -48,16 +48,54 @@ std::vector<uint16_t> NECProtocol::encode(uint8_t address, uint8_t command)
         timings.push_back(bit ? NEC_BIT_1_SPACE_US : NEC_BIT_0_SPACE_US);
     };
 
-    for (int i = 7; i >= 0; i--) {
+    for (int i = 0; i < 8; i++) {
         add_bit(address & (1 << i));
     }
-    for (int i = 7; i >= 0; i--) {
+    for (int i = 0; i < 8; i++) {
         add_bit(inv_address & (1 << i));
     }
-    for (int i = 7; i >= 0; i--) {
+    for (int i = 0; i < 8; i++) {
         add_bit(command & (1 << i));
     }
-    for (int i = 7; i >= 0; i--) {
+    for (int i = 0; i < 8; i++) {
+        add_bit(inv_command & (1 << i));
+    }
+
+    timings.push_back(NEC_BIT_BURST_US);
+
+    return timings;
+}
+
+std::vector<uint16_t> NECProtocol::encode_led(uint8_t command)
+{
+    std::vector<uint16_t> timings;
+    timings.reserve(67);
+
+    timings.push_back(NEC_LEADER_BURST_US);
+    timings.push_back(NEC_LEADER_SPACE_US);
+
+    uint8_t inv_command = invert(command);
+
+    auto add_bit = [&](bool bit) {
+        timings.push_back(NEC_BIT_BURST_US);
+        timings.push_back(bit ? NEC_BIT_1_SPACE_US : NEC_BIT_0_SPACE_US);
+    };
+
+    for (int i = 0; i < 8; i++) {
+        add_bit(0);
+    }
+    for (int i = 0; i < 4; i++) {
+        add_bit(1);
+    }
+    add_bit(0);
+    for (int i = 0; i < 3; i++) {
+        add_bit(1);
+    }
+
+    for (int i = 0; i < 8; i++) {
+        add_bit(command & (1 << i));
+    }
+    for (int i = 0; i < 8; i++) {
         add_bit(inv_command & (1 << i));
     }
 
@@ -86,14 +124,14 @@ IRCommand NECProtocol::decode(const std::vector<uint16_t>& timings)
     static constexpr uint32_t NEC_PULSE_SIZE = 67;
     if (timings.size() < NEC_PULSE_SIZE) 
     {
-        throw Exception(ErrorCode::NOT_NEC_PROTOCOL);
+        throw IRException(IRErrorCode::NOT_NEC_PROTOCOL);
     }
 
     static constexpr uint32_t LEADER_BURST_INDEX = 0;
     static constexpr uint32_t LEADER_SPACE_INDEX = 1;
     if (!in_range(timings[LEADER_BURST_INDEX], NEC_LEADER_BURST_US) || !in_range(timings[LEADER_SPACE_INDEX], NEC_LEADER_SPACE_US))
     {
-        throw Exception(ErrorCode::NOT_NEC_PROTOCOL);
+        throw IRException(IRErrorCode::NOT_NEC_PROTOCOL);
     }
 
     
@@ -130,11 +168,11 @@ IRCommand NECProtocol::decode(const std::vector<uint16_t>& timings)
     // LED Protocol is stupid, also check if it passes 
     if (invert(address_bits) != inv_address_bits && invert(address_bits) != inv_address_bits +  0x10) 
     {
-        throw Exception(ErrorCode::ADDRESSES_DONT_MATCH);
+        throw IRException(IRErrorCode::ADDRESSES_DONT_MATCH);
     }
     if (invert(command_bits) != inv_command_bits) 
     {
-        throw Exception(ErrorCode::COMMANDS_DONT_MATCH);
+        throw IRException(IRErrorCode::COMMANDS_DONT_MATCH);
     }
 
     return IRCommand{

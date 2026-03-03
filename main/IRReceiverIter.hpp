@@ -15,7 +15,7 @@ class RMTChannel;
 
 class IRReceiverIter
 {
-    friend class IRReceiver;
+friend class IRReceiver;
 
 private:
     explicit IRReceiverIter(std::weak_ptr<RMTChannel> base);
@@ -35,7 +35,7 @@ private:
 
 private:
     void initialize_callback();
-    void receive_next();
+    void initiate_receive();
     
 private:
     static bool receive_callback(rmt_channel_handle_t rx_chan, const rmt_rx_done_event_data_t *edata, void *user_ctx);

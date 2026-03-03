@@ -13,7 +13,7 @@ public:
     explicit IRTransmitter(gpio_num_t gpio_num);
     ~IRTransmitter() = default;
 
-    void send(const IRCommand& cmd);
+    virtual void send(const IRCommand& cmd);
     void send_raw(const std::vector<uint16_t>& timings);
 
 private:

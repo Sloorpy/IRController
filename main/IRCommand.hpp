@@ -30,6 +30,8 @@ public:
 public:
     static std::vector<uint16_t> encode(uint8_t address, uint8_t command);
 
+    static std::vector<uint16_t> encode_led(uint8_t command);
+
     static IRCommand decode(const std::vector<uint16_t>& timings);
 
     static bool is_repeat(const std::vector<uint16_t>& timings);

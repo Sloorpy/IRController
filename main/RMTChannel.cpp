@@ -14,7 +14,7 @@ void RMTChannel::enable()
     esp_err_t ret = rmt_enable(_channel);
     if (ret != ESP_OK)
     {
-        throw Exception(ErrorCode::ENABLE_CHANNEL_FAILED);
+        throw IRException(IRErrorCode::ENABLE_CHANNEL_FAILED);
     }
 }
 

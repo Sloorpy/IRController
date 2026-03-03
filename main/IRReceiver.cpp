@@ -13,6 +13,7 @@ IRReceiver::IRReceiver(gpio_num_t gpio_num) :
     _iter(IRReceiverIter::create(_channel))
 {
     _channel->enable();
+    _iter->initiate_receive();
 }
 
 
@@ -32,7 +33,7 @@ std::shared_ptr<RMTChannel> IRReceiver::create_channel(gpio_num_t gpio_num)
     esp_err_t ret = rmt_new_rx_channel(&rx_chan_config, &handle);
     if (ret != ESP_OK) 
     {
-        throw Exception(ErrorCode::RX_CHANNEL_CREATE_FAILED);
+        throw IRException(IRErrorCode::RX_CHANNEL_CREATE_FAILED);
     }
 
     return std::make_shared<RMTChannel>(handle, RECEIVER_CARRIER_FREQ_HZ);

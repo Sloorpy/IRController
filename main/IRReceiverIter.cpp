@@ -12,7 +12,7 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/queue.h"
 
-static constexpr size_t RX_BUFFER_SIZE = 64;
+static constexpr size_t RX_BUFFER_SIZE = 128;
 
 IRReceiverIter::IRReceiverIter(std::weak_ptr<RMTChannel> base)
     : _base(base),
@@ -70,7 +70,7 @@ void IRReceiverIter::initialize_callback()
     std::shared_ptr<RMTChannel> channel_owner = get_base();
     if (!channel_owner)
     {
-        throw Exception(ErrorCode::RX_CHANNEL_CREATE_FAILED);
+        throw IRException(IRErrorCode::RX_CHANNEL_CREATE_FAILED);
     }
 
     rmt_rx_event_callbacks_t cbs = {
@@ -80,10 +80,8 @@ void IRReceiverIter::initialize_callback()
     esp_err_t ret = rmt_rx_register_event_callbacks(channel_owner->get_channel(), &cbs, this);
     if (ret != ESP_OK)
     {
-        throw Exception(ErrorCode::RX_CALLBACK_REGISTER_FAILED);
+        throw IRException(IRErrorCode::RX_CALLBACK_REGISTER_FAILED);
     }
-
-    receive_next();
 }
 
 
@@ -92,25 +90,25 @@ std::shared_ptr<RMTChannel> IRReceiverIter::get_base() const
     return _base.lock();
 }
 
-void IRReceiverIter::receive_next()
+void IRReceiverIter::initiate_receive()
 {
     std::shared_ptr<RMTChannel> channel_owner = get_base();
 
     if (!channel_owner)
     {
-        throw Exception(ErrorCode::RMT_CHANNEL_WAS_FREED);
+        throw IRException(IRErrorCode::RMT_CHANNEL_WAS_FREED);
     }
 
     rmt_receive_config_t receive_config = {
         .signal_range_min_ns = 1250,
-        .signal_range_max_ns = 12000000,
+        .signal_range_max_ns = 30000000,
     };
 
     esp_err_t ret = rmt_receive(channel_owner->get_channel(), _symbols_buffer.data(), _symbols_buffer.size() * sizeof(rmt_symbol_word_t), &receive_config);
     
     if (ret != ESP_OK)
     {
-        throw Exception(ErrorCode::RMT_RECEIVE_FAILED);
+        throw IRException(IRErrorCode::RMT_RECEIVE_FAILED);
     }
 }
 
@@ -145,13 +143,18 @@ bool IRReceiverIter::receive_callback(rmt_channel_handle_t channel, const rmt_rx
             }
         }
 
+        //ESP_DRAM_LOGI("IR", "%s\n", NECProtocol::timings_str(timings).c_str());
         const IRCommand cmd = NECProtocol::decode(timings);
 
-        xQueueGenericSend(iter->_queue, &cmd, portMAX_DELAY, queueSEND_TO_BACK);
-
-        iter->receive_next();
+        xQueueGenericSend(iter->_queue, &cmd, portMAX_DELAY, queueOVERWRITE);
+        
+        iter->initiate_receive();
 
         return true;
+    }
+    catch (IRException ex) 
+    {       
+        ESP_DRAM_LOGI("IR", "Invalid ir format or not supported. IR Error code %d\n", static_cast<uint16_t>(ex.get()));
     }
     catch (Exception ex) 
     {       
@@ -162,7 +165,7 @@ bool IRReceiverIter::receive_callback(rmt_channel_handle_t channel, const rmt_rx
         ESP_DRAM_LOGI("IR", "ERROR: crashed with unknown error");
     }
     
-    iter->receive_next();
+    iter->initiate_receive();
 
     return false;
 }
