@@ -80,3 +80,5 @@ Desktop.ini
 .cache/
 .devcontainer/
 .vscode/
+
+WifiCreds.h
