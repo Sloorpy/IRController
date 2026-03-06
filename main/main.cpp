@@ -103,7 +103,7 @@ bool has_alert_live(HTTPClient& client, std::string city)
 bool has_alert_history(HTTPClient& client, const std::string& city, const uint16_t time_diff_sec)
 {
     json latest_alert = client.get_json_first(ALERT_HISTORY);
-    
+
     if (latest_alert.empty())
     {
         return false;
@@ -114,12 +114,12 @@ bool has_alert_history(HTTPClient& client, const std::string& city, const uint16
         return false;
     }
 
-    if (!latest_alert.contains("category") || !latest_alert["category"].is_string())
+    if (!latest_alert.contains("category") || !latest_alert["category"].is_number_integer())
     {
         return false;
     }
 
-    LiveAlertCategory category = static_cast<LiveAlertCategory>(std::stoi(latest_alert["category"].get<std::string>()));
+    LiveAlertCategory category = static_cast<LiveAlertCategory>(latest_alert["category"].get<uint32_t>());
     if (category == LiveAlertCategory::ALERT_OVER || category == LiveAlertCategory::HOSTILE_UFO_OVER)
     {
         return false;
@@ -164,7 +164,7 @@ bool check_alert(HTTPClient& client, const std::string& city)
         return true;
     }
 
-    static constexpr uint32_t LAST_ALERT_TIME_DIFF_SEC = 120;
+    static constexpr uint32_t LAST_ALERT_TIME_DIFF_SEC = 3 * 60;
     return has_alert_history(client, city, LAST_ALERT_TIME_DIFF_SEC);
 }
 
@@ -289,8 +289,7 @@ extern "C" void app_main(void)
 
                 sleep(INITIAL_DELAY_SEC);
             }
-
-        } 
+        }
         catch (esp_err_t err) {
             printf("ERROR: crashed with esp error code %d: %s\n", err, esp_err_to_name(err));
         }
