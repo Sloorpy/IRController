@@ -27,6 +27,7 @@ public:
 private:
     void init();
     void disconnect();
+    wifi_sta_config_t create_wifi_config() const;
 
 private:
     static void event_handler(void* arg, esp_event_base_t event_base, int32_t event_id, void* event_data);

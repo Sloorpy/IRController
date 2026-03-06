@@ -29,43 +29,16 @@ WiFi::~WiFi()
 {
     if (_initialized)
     {
-        esp_err_t ret = esp_wifi_stop();
-        if (ret != ESP_OK && ret != ESP_ERR_WIFI_NOT_STARTED)
-        {
-            printf("[WiFi] WARNING: esp_wifi_stop failed: %d\n", ret);
-        }
-
-        ret = esp_wifi_deinit();
-        if (ret != ESP_OK && ret != ESP_ERR_WIFI_NOT_INIT)
-        {
-            printf("[WiFi] WARNING: esp_wifi_deinit failed: %d\n", ret);
-        }
-
-        if (_netif != nullptr)
-        {
-            esp_netif_destroy_default_wifi(_netif);
-            _netif = nullptr;
-        }
-
-        ret = esp_event_loop_delete_default();
-        if (ret != ESP_OK && ret != ESP_ERR_INVALID_STATE)
-        {
-            printf("[WiFi] WARNING: esp_event_loop_delete_default failed: %d\n", ret);
-        }
-
-        ret = esp_netif_deinit();
-        if (ret != ESP_OK && ret != ESP_ERR_INVALID_STATE)
-        {
-            printf("[WiFi] WARNING: esp_netif_deinit failed: %d\n", ret);
-        }
-
-        _initialized = false;
+        esp_wifi_stop();
+        esp_wifi_deinit();
+        esp_netif_destroy_default_wifi(_netif);
+        esp_event_loop_delete_default();
+        esp_netif_deinit();
     }
 
     if (s_wifi_event_group != nullptr)
     {
         vEventGroupDelete(s_wifi_event_group);
-        s_wifi_event_group = nullptr;
     }
 }
 
@@ -118,23 +91,27 @@ void WiFi::init()
 
     _initialized = true;
 }
+wifi_sta_config_t WiFi::create_wifi_config() const
+{
+    wifi_sta_config_t sta_conf = {};
+    std::memcpy(sta_conf.ssid, _ssid.data(), _ssid.size());
+    sta_conf.ssid[_ssid.size()] = '\0';
+    std::memcpy(sta_conf.password, _password.data(), _password.size());
+    sta_conf.password[_password.size()] = '\0';
+    sta_conf.scan_method = WIFI_FAST_SCAN;
+    return sta_conf;
+}
 
 bool WiFi::connect(uint32_t timeout_ms)
 {
     printf("[WiFi] connect() started\n");
 
     bool retry_forever = (timeout_ms == 0);
+    const wifi_sta_config_t sta_conf = create_wifi_config();
 
     while (true)
     {
         xEventGroupClearBits(s_wifi_event_group, CONNECTED_BIT | FAILED_BIT);
-
-        wifi_sta_config_t sta_conf = {};
-        std::memcpy(sta_conf.ssid, _ssid.data(), _ssid.size());
-        sta_conf.ssid[_ssid.size()] = '\0';
-        std::memcpy(sta_conf.password, _password.data(), _password.size());
-        sta_conf.password[_password.size()] = '\0';
-        sta_conf.scan_method = WIFI_FAST_SCAN;
 
         wifi_config_t wifi_conf = {.sta = sta_conf};
 
@@ -146,7 +123,6 @@ bool WiFi::connect(uint32_t timeout_ms)
             if (!retry_forever)
             {
                 _is_connected = false;
-                return false;
             }
             vTaskDelay(pdMS_TO_TICKS(1000));
             continue;
@@ -160,7 +136,6 @@ bool WiFi::connect(uint32_t timeout_ms)
             if (!retry_forever)
             {
                 _is_connected = false;
-                return false;
             }
             vTaskDelay(pdMS_TO_TICKS(1000));
             continue;
