@@ -1,8 +1,9 @@
 #include "HTTPClient.hpp"
+#include "esp_log.h"
 
 #include <cstring>
 
-static constexpr size_t HTTP_BUFFER_SIZE = 4096;
+static constexpr size_t HTTP_BUFFER_SIZE = 4096 * 2;
 
 HTTPClient::HTTPClient()
     : _buffer(HTTP_BUFFER_SIZE, '\0'),
@@ -37,6 +38,7 @@ esp_err_t HTTPClient::_event_handler(esp_http_client_event_t* evt)
 
 std::string HTTPClient::get(std::string_view url)
 {
+    _buffer.resize(0);
     _buffer.assign(HTTP_BUFFER_SIZE, '\0');
     _response_received = false;
 
@@ -62,4 +64,60 @@ std::string HTTPClient::get(std::string_view url)
     }
 
     return std::string(_buffer.data());
+}
+
+json HTTPClient::get_json(std::string_view url)
+{
+    std::string get_result = get(url);
+
+    static constexpr size_t MINIMUM_RESULT_LEN = 6;
+    if (get_result.length() < MINIMUM_RESULT_LEN)
+    {
+        return json({});
+    }
+
+    return json::parse(get_result);
+}
+
+json HTTPClient::get_json_first(std::string_view url)
+{
+    std::string raw = get(url);
+
+    static constexpr size_t MINIMUM_RESULT_LEN = 6;
+    if (raw.length() < MINIMUM_RESULT_LEN)
+    {
+        return json({});
+    }
+
+    size_t start = raw.find('{');
+    if (start == std::string::npos)
+    {
+        start = raw.find('[');
+    }
+    if (start == std::string::npos)
+    {
+        return json({});
+    }
+
+    int depth = 0;
+    size_t end = start;
+    for (size_t i = start; i < raw.size(); i++)
+    {
+        if (raw[i] == '{' || raw[i] == '[')
+        {
+            depth++;
+        }
+        else if (raw[i] == '}' || raw[i] == ']')
+        {
+            depth--;
+        }
+
+        if (depth == 0)
+        {
+            end = i + 1;
+            break;
+        }
+    }
+
+    return json::parse(raw.substr(start, end - start));
 }
