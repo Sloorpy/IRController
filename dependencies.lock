@@ -1,4 +1,12 @@
 dependencies:
+  dieortin/esp32-buzzer:
+    component_hash: 351bd32ca459cff743ecaec4b0b2730bfbb87d3797ba8f4549ce69e2d4501bd7
+    dependencies: []
+    source:
+      git: https://github.com/dieortin/esp32-buzzer.git
+      path: .
+      type: git
+    version: b04580c95bb9a93e8b2e12a3c36dd23c14e2dfe7
   espressif/cmake_utilities:
     component_hash: 351350613ceafba240b761b4ea991e0f231ac7a9f59a9ee901f751bddc0bb18f
     dependencies:
@@ -35,8 +43,9 @@ dependencies:
       type: idf
     version: 5.5.3
 direct_dependencies:
+- dieortin/esp32-buzzer
 - espressif/ir_learn
 - idf
-manifest_hash: 2d719097058a50c0f58e0d1db6dedead9f3d0d4b4a34c4757b6a76c31782f2d9
+manifest_hash: a1d2f243da641fa0ca57422de142b9aa3f4ab274fbe4d44722ed8338596af64a
 target: esp32
 version: 2.0.0

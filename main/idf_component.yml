@@ -15,3 +15,5 @@ dependencies:
   #   # All dependencies of `main` are public by default.
   #   public: true
   espressif/ir_learn: '*'
+  dieortin/esp32-buzzer:
+    git: https://github.com/dieortin/esp32-buzzer.git
