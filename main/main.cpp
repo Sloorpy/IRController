@@ -272,20 +272,20 @@ extern "C" void app_main(void)
             
             static constexpr uint32_t INITIAL_DELAY_SEC = 1;
             while (true)
-            {
-                bool has_alert = check_alert(client, std::string(CITY));
-                if (!has_alert)
+            {   
+                bool had_alert = false;
+                while (check_alert(client, std::string(CITY)))
                 {
-                    printf("City NOT found: %s\n", CITY.data());
-                    sleep(INITIAL_DELAY_SEC);
-                    continue;
+                    printf("City FOUND: %s\n", CITY.data());
+                    start_alarm(ir_transmitter, ALARM_DURATION_SEC);
+                    had_alert = true;
                 }
-
-                printf("City FOUND: %s\n", CITY.data());
                 
-                start_alarm(ir_transmitter, ALARM_DURATION_SEC);
-
-                turn_off(ir_transmitter);
+                if (had_alert)
+                {
+                    turn_off(ir_transmitter);
+                    printf("No more alerts in %s\n", CITY.data());
+                }
 
                 sleep(INITIAL_DELAY_SEC);
             }
