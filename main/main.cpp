@@ -5,6 +5,7 @@
 #include <ctime>
 #include <stdio.h>
 #include <string>
+#include <sys/unistd.h>
 
 #include "Exception.hpp"
 #include "IRCommand.hpp"
@@ -168,13 +169,26 @@ bool check_alert(HTTPClient& client, const std::string& city)
     return has_alert_history(client, city, LAST_ALERT_TIME_DIFF_SEC);
 }
 
-void blink(LEDTransmitter& led)
+void blink_warning(LEDTransmitter& led)
 {
-    static constexpr uint64_t LED_BREAK_TIME_US = 35000;
+    static constexpr uint64_t WARNING_BLINK_DELAY_US = 400000;
+
+    led.send_multiple(LEDProtocol::POWER_ON);
 
     led.send_multiple(LEDProtocol::RED_LIGHT);
-    usleep(LED_BREAK_TIME_US);
+    usleep(WARNING_BLINK_DELAY_US);
     
+    led.send_multiple(LEDProtocol::POWER_OFF);
+    usleep(WARNING_BLINK_DELAY_US);
+}
+
+void blink(LEDTransmitter& led)
+{
+    static constexpr uint64_t LED_BREAK_TIME_US = 20000;
+    
+    led.send_multiple(LEDProtocol::RED_LIGHT);
+    usleep(LED_BREAK_TIME_US);
+
     led.send_multiple(LEDProtocol::WHITE_LIGHT);
     usleep(LED_BREAK_TIME_US);
 
@@ -196,7 +210,7 @@ void turn_off(LEDTransmitter& led)
     led.send_multiple(LEDProtocol::POWER_OFF, 50, DELAY_BETWEEN_SIGNALS_MS);
 }
 
-void start_alarm(LEDTransmitter& led, const uint32_t alarm_duration_sec)
+void alarm(LEDTransmitter& led, const uint32_t alarm_duration_sec)
 {
     turn_on_max(led);
     
@@ -277,7 +291,7 @@ extern "C" void app_main(void)
                 while (check_alert(client, std::string(CITY)))
                 {
                     printf("City FOUND: %s\n", CITY.data());
-                    start_alarm(ir_transmitter, ALARM_DURATION_SEC);
+                    alarm(ir_transmitter, ALARM_DURATION_SEC);
                     had_alert = true;
                 }
                 
