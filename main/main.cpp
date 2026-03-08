@@ -15,14 +15,21 @@
 #include "IRReceiver.hpp"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
+#include "esp_wifi.h"
+#include "esp_netif.h"
+#include "esp_event.h"
 
 #include "WiFi.hpp"
 #include "HTTPClient.hpp"
-#include "WifiCreds.h"
 #include "Utils.hpp"
+#include "Storage.hpp"
+#include "Portal.hpp"
+
+using nlohmann::json;
 
 static constexpr std::string_view LIVE_ALERT = "https://www.oref.org.il/warningMessages/alert/Alerts.json";
 static constexpr std::string_view ALERT_HISTORY = "https://alerts-history.oref.org.il//Shared/Ajax/GetAlarmsHistory.aspx?lang=he&mode=1&city_0=%D7%A0%D7%AA%D7%A0%D7%99%D7%94%20-%20%D7%9E%D7%A2%D7%A8%D7%91";
+static constexpr std::string_view AP_SSID = "AlertLight-Setup";
 
 enum class LiveAlertCategory : uint8_t
 {
@@ -255,33 +262,106 @@ void start_notification(LEDTransmitter& led)
     }
 }   
 
+static Storage* s_storage = nullptr;
+static Portal* s_portal = nullptr;
+static WiFi* s_wifi = nullptr;
+
 extern "C" void app_main(void)
 {
     static constexpr std::string_view CITY = "נתניה - מערב";
     static constexpr gpio_num_t IR_TRANSFER_PIN = GPIO_NUM_13;
     static constexpr uint32_t ALARM_DURATION_SEC = 90;
 
+    s_storage = new Storage();
+    s_storage->init();
+    
+    s_wifi = new WiFi();
+    s_wifi->init();
+    s_wifi->enable_ap(AP_SSID);
+    
+    s_portal = new Portal(*s_storage);
+    s_portal->start();
+    
+    s_portal->set_wifi_connect_callback([](const std::string& ssid, const std::string& password) {
+        printf("WiFi connect callback: trying %s\n", ssid.c_str());
+        s_wifi->enable_sta(ssid, password);
+        if (s_wifi->connect_sta_and_sync(5))
+        {
+            printf("WiFi connected successfully! Saving credentials.\n");
+            s_storage->set_wifi_creds(ssid, password);
+            s_portal->set_sta_connected(true);
+            s_portal->set_sta_ssid(ssid);
+        }
+        else
+        {
+            printf("WiFi connection failed - not saving credentials\n");
+            s_wifi->disable_sta();
+        }
+    });
+    
+    printf("Portal started! Connect to WiFi '%.*s' and open http://192.168.4.1\n", 
+           AP_SSID.length(), AP_SSID.data());
+
+    std::string stored_ssid, stored_password;
+    bool has_credentials = s_storage->get_wifi_creds(stored_ssid, stored_password);
+    
+    if (has_credentials && !stored_ssid.empty())
+    {
+        printf("Found stored WiFi credentials, connecting to: %s\n", stored_ssid.c_str());
+        s_wifi->enable_sta(stored_ssid, stored_password);
+        
+        if (!s_wifi->connect_sta_and_sync(0))
+        {
+            printf("Failed to connect to stored WiFi - clearing invalid credentials\n");
+            s_storage->clear_wifi_creds();
+            s_wifi->disable_sta();
+            has_credentials = false;
+        }
+        else
+        {
+            printf("Connected to WiFi: %s\n", stored_ssid.c_str());
+            s_portal->set_sta_connected(true);
+            s_portal->set_sta_ssid(stored_ssid);
+        }
+    }
     
     while (true)
     {
         try 
         {
             LEDTransmitter ir_transmitter(IR_TRANSFER_PIN);
-            WiFi wifi(SSID, PASSWORD);
             
-            static constexpr uint32_t WAIT_FOR_CONNECTION = 0;
-            if (!wifi.connect_and_sync(WAIT_FOR_CONNECTION))
+            if (!s_wifi->is_sta_connected())
             {
-                printf("Failed to connect to WiFi or sync time\n");
-                return;
+                if (has_credentials && s_storage)
+                {
+                    s_storage->get_wifi_creds(stored_ssid, stored_password);
+                    if (!stored_ssid.empty())
+                    {
+                        printf("Retrying WiFi connection...\n");
+                        s_wifi->enable_sta(stored_ssid, stored_password);
+                        if (s_wifi->connect_sta_and_sync(0))
+                        {
+                            printf("Connected to WiFi: %s\n", stored_ssid.c_str());
+                            s_portal->set_sta_connected(true);
+                            s_portal->set_sta_ssid(stored_ssid);
+                        }
+                        else
+                        {
+                            s_wifi->disable_sta();
+                        }
+                    }
+                }
+                
+                if (!s_wifi->is_sta_connected())
+                {
+                    sleep(1);
+                    continue;
+                }
             }
 
             printf("Connected to WiFi and synced time!\n");
 
-            // Disabled it because when program crashes and reboots this will run again (maybe im asleep)
-            //start_notification(ir_transmitter);
-            //turn_off(ir_transmitter);
-            
             HTTPClient client;
             
             static constexpr uint32_t INITIAL_DELAY_SEC = 1;
@@ -318,5 +398,6 @@ extern "C" void app_main(void)
             printf("ERROR: crashed with unknown error\n");
         }
 
+        sleep(1);
     }
 }

@@ -11,7 +11,7 @@ namespace Utils
     {
         while (true)
         {
-            if (!wifi.is_connected())
+            if (!wifi.is_sta_connected())
             {
                 return false;
             }

@@ -11,20 +11,13 @@
 class RMTChannel
 {
 public:
+    explicit RMTChannel(rmt_channel_handle_t channel, uint32_t carrier_frequency_hz);
     virtual ~RMTChannel();
 
-public:
-    RMTChannel(const RMTChannel&) = delete;
-    RMTChannel& operator=(const RMTChannel&) = delete;
-    RMTChannel(RMTChannel&&) = delete;
-    RMTChannel& operator=(RMTChannel&&) = delete;
+    DELETE_COPY_MOVE(RMTChannel)
 
-public:
     rmt_channel_handle_t get_channel() const { return _channel; }
     virtual void enable();
-
-public:
-    explicit RMTChannel(rmt_channel_handle_t channel, uint32_t carrier_frequency_hz);
 
 protected:
     rmt_channel_handle_t _channel = nullptr;

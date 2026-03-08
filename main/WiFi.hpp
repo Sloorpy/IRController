@@ -12,30 +12,42 @@
 class WiFi
 {
 public:
-    WiFi(std::string_view ssid, std::string_view password);
+    explicit WiFi();
     ~WiFi();
 
-public:
     DELETE_COPY_MOVE(WiFi)
 
-public:
-    static constexpr uint32_t DEFAULT_TIMEOUT_MS = 120000;
-    bool connect(uint32_t timeout_ms = DEFAULT_TIMEOUT_MS);
-    bool is_connected() const;
-    bool connect_and_sync(uint32_t timeout_ms = DEFAULT_TIMEOUT_MS);
-
-private:
     void init();
-    void disconnect();
-    wifi_sta_config_t create_wifi_config() const;
+
+    void enable_sta(std::string_view ssid, std::string_view password);
+    void disable_sta();
+    bool is_sta_connected() const;
+    bool connect_sta(uint32_t timeout_ms);
+    bool connect_sta_and_sync(uint32_t timeout_ms);
+
+    void enable_ap(std::string_view ssid);
+    void disable_ap();
+    bool is_ap_started() const;
+
+    void disable();
 
 private:
+    void create_ap_netif();
+    void create_sta_netif();
+
     static void event_handler(void* arg, esp_event_base_t event_base, int32_t event_id, void* event_data);
 
-private:
-    const std::string_view _ssid;
-    const std::string_view _password;
-    bool _is_connected;
-    bool _initialized;
-    esp_netif_t* _netif;
+    bool _initialized = false;
+    bool _sta_enabled = false;
+    bool _ap_enabled = false;
+    bool _sta_connected = false;
+
+    std::string_view _sta_ssid;
+    std::string_view _sta_password;
+
+    esp_netif_t* _sta_netif = nullptr;
+    esp_netif_t* _ap_netif = nullptr;
+
+    static bool s_sta_connected;
+    static bool s_sta_connect_failed;
 };
